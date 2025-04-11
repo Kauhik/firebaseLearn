@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Simple CRM (CRUD Example)</title>
+  
+  <!-- Load app.js as an ES module -->
+  <script type="module" src="app.js"></script>
+  
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+    }
+    .deal {
+      border: 1px solid #ccc;
+      padding: 8px;
+      margin-bottom: 8px;
+      border-radius: 4px;
+    }
+    .buttons {
+      margin-top: 4px;
+    }
+    dialog {
+      border: none;
+      border-radius: 6px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      padding: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Simple CRM with Firebase (CRUD)</h1>
+
+  <!-- SIGN IN / SIGN OUT UI -->
+  <button id="btnGoogleSignIn">Sign In with Google</button>
+  <button id="btnSignOut">Sign Out</button>
+  <p id="userInfo"></p>
+
+  <!-- FORM to create new deals -->
+  <form id="dealForm">
+    <input id="dealName" placeholder="Deal Name" required />
+    <select id="dealStage" required>
+      <option value="prospecting">Prospecting</option>
+      <option value="negotiation">Negotiation</option>
+      <option value="dealing">Dealing</option>
+      <option value="closedWon">Closed Won</option>
+      <option value="closedLost">Closed Lost</option>
+    </select>
+    <button type="submit">Create Deal</button>
+  </form>
+
+  <!-- Display created deals -->
+  <h2>Deals</h2>
+  <div id="dealsContainer"></div>
+
+  <!-- Dialog for Editing a Deal -->
+  <dialog id="editDealDialog">
+    <form id="editDealForm">
+      <h3>Edit Deal</h3>
+      <label for="editDealName">Deal Name:</label><br/>
+      <input type="text" id="editDealName" required /><br/><br/>
+
+      <label for="editDealStage">Deal Stage:</label><br/>
+      <select id="editDealStage" required>
+        <option value="prospecting">Prospecting</option>
+        <option value="negotiation">Negotiation</option>
+        <option value="dealing">Dealing</option>
+        <option value="closedWon">Closed Won</option>
+        <option value="closedLost">Closed Lost</option>
+      </select>
+
+      <div style="margin-top: 12px;">
+        <button type="submit">Update Deal</button>
+        <button type="button" id="cancelEdit">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>
