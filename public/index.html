@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Simple CRM (CRUD Example)</title>
+  <title>Simple CRM (User-Specific CRUD)</title>
   
   <!-- Load app.js as an ES module -->
   <script type="module" src="app.js"></script>
@@ -31,7 +31,7 @@
   </style>
 </head>
 <body>
-  <h1>Simple CRM with Firebase (CRUD)</h1>
+  <h1>Simple CRM with Firebase (User-Specific CRUD)</h1>
 
   <!-- SIGN IN / SIGN OUT UI -->
   <button id="btnGoogleSignIn">Sign In with Google</button>
@@ -51,8 +51,8 @@
     <button type="submit">Create Deal</button>
   </form>
 
-  <!-- Display created deals -->
-  <h2>Deals</h2>
+  <!-- Display user-specific deals -->
+  <h2>Your Deals</h2>
   <div id="dealsContainer"></div>
 
   <!-- Dialog for Editing a Deal -->

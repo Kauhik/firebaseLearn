@@ -19,10 +19,12 @@ import {
   updateDoc,
   deleteDoc,
   serverTimestamp,
-  getDoc // needed for fetching doc when editing
+  getDoc,
+  query,
+  where
 } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 
-// 2) Firebase Configuration (replace with your own credentials if needed)
+// 2) Firebase Configuration (replace with your project's credentials if needed)
 const firebaseConfig = {
   apiKey: "AIzaSyDqsxhXZ4yaLSvEQ-8sOFJZdAYYoJqgGz0",
   authDomain: "fir-learn-73b00.firebaseapp.com",
@@ -52,17 +54,16 @@ const dealNameField = document.getElementById('dealName');
 const dealStageField = document.getElementById('dealStage');
 const dealsContainer = document.getElementById('dealsContainer');
 
-// Elements for editing deals
 const editDealDialog = document.getElementById('editDealDialog');
 const editDealForm = document.getElementById('editDealForm');
 const editDealName = document.getElementById('editDealName');
 const editDealStage = document.getElementById('editDealStage');
 const cancelEdit = document.getElementById('cancelEdit');
 
-let currentEditDocId = null; // Track the document ID of the deal to edit
+let currentEditDocId = null; // Tracks which doc is being edited
+let unsubscribeDeals = null; // Will store the listener for deals
 
-// 6) --- Client-side validation function ---
-// This function acts like a schema validator for each deal
+// 6) Client-side schema validation
 function validateDeal(deal) {
   if (!deal.name || typeof deal.name !== 'string' || deal.name.trim() === '') {
     throw new Error('Deal name is required and must be a non-empty string.');
@@ -87,77 +88,86 @@ btnGoogleSignIn.addEventListener('click', async () => {
 btnSignOut.addEventListener('click', async () => {
   try {
     await signOut(auth);
-    console.log("User signed out.");
   } catch (error) {
     console.error("Error signing out:", error);
   }
 });
 
-// 9) Auth State Listener
+// 9) Auth State Listener & Deals Listener
 onAuthStateChanged(auth, user => {
   if (user) {
     userInfo.textContent = `Signed in as: ${user.displayName} (${user.email})`;
+    // Set up Firestore query for this user's deals
+    const userDealsQuery = query(collection(db, "deals"), where("uid", "==", user.uid));
+    
+    // Unsubscribe from previous listener if exists
+    if (unsubscribeDeals) unsubscribeDeals();
+    
+    unsubscribeDeals = onSnapshot(userDealsQuery, snapshot => {
+      dealsContainer.innerHTML = "";
+      snapshot.forEach(docSnap => {
+        const dealData = docSnap.data();
+        const dealId = docSnap.id;
+        const dealDiv = document.createElement('div');
+        dealDiv.classList.add('deal');
+        
+        dealDiv.innerHTML = `
+          <strong>${dealData.name}</strong> – <em>${dealData.stage}</em><br/>
+          <small>Doc ID: ${dealId}</small>
+          <div class="buttons">
+            <button data-id="${dealId}" class="edit-deal">Edit</button>
+            <button data-id="${dealId}" class="delete-deal">Delete</button>
+          </div>
+        `;
+        dealsContainer.appendChild(dealDiv);
+      });
+    });
   } else {
     userInfo.textContent = "Not signed in.";
+    // No user: clear deals and unsubscribe from listener
+    dealsContainer.innerHTML = "";
+    if (unsubscribeDeals) {
+      unsubscribeDeals();
+      unsubscribeDeals = null;
+    }
   }
 });
 
-// 10) Create a new deal
+// 10) Create a new deal (only if user is logged in)
 dealForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   
+  if (!auth.currentUser) {
+    alert("Please sign in to create a deal.");
+    return;
+  }
+  
   const dealName = dealNameField.value.trim();
   const dealStage = dealStageField.value;
-  
-  // Create an object to validate
   const newDeal = { name: dealName, stage: dealStage };
-
+  
   try {
-    // Validate before writing
     validateDeal(newDeal);
-
     await addDoc(collection(db, "deals"), {
       name: newDeal.name,
       stage: newDeal.stage,
       createdAt: serverTimestamp(),
-      uid: auth.currentUser ? auth.currentUser.uid : null,
+      uid: auth.currentUser.uid
     });
     dealForm.reset();
   } catch (err) {
-    console.error("Error adding deal to Firestore:", err);
+    console.error("Error adding deal:", err);
     alert(err.message);
   }
 });
 
-// 11) Real-time listener to display deals from Firestore
-onSnapshot(collection(db, "deals"), (snapshot) => {
-  dealsContainer.innerHTML = "";
-  snapshot.forEach(docSnap => {
-    const dealData = docSnap.data();
-    const dealId = docSnap.id;
-    const dealDiv = document.createElement('div');
-    dealDiv.classList.add('deal');
-    
-    dealDiv.innerHTML = `
-      <strong>${dealData.name}</strong> – <em>${dealData.stage}</em><br/>
-      <small>Doc ID: ${dealId}</small>
-      <div class="buttons">
-        <button data-id="${dealId}" class="edit-deal">Edit</button>
-        <button data-id="${dealId}" class="delete-deal">Delete</button>
-      </div>
-    `;
-    dealsContainer.appendChild(dealDiv);
-  });
-});
-
-// 12) Event Delegation for Edit & Delete buttons
+// 11) Event delegation for Edit & Delete buttons
 document.addEventListener('click', async (e) => {
-  // Edit Deal Button Clicked
+  // Edit Deal
   if (e.target.matches('.edit-deal')) {
     currentEditDocId = e.target.getAttribute('data-id');
     const docRef = doc(db, "deals", currentEditDocId);
     const docSnap = await getDoc(docRef);
-    
     if (docSnap.exists()) {
       const data = docSnap.data();
       editDealName.value = data.name;
@@ -166,7 +176,7 @@ document.addEventListener('click', async (e) => {
     }
   }
 
-  // Delete Deal Button Clicked
+  // Delete Deal
   if (e.target.matches('.delete-deal')) {
     const docIdToDelete = e.target.getAttribute('data-id');
     try {
@@ -178,7 +188,7 @@ document.addEventListener('click', async (e) => {
   }
 });
 
-// 13) Handle Edit Deal Form Submission (Update)
+// 12) Update (Edit) Deal
 editDealForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   if (!currentEditDocId) return;
@@ -186,7 +196,6 @@ editDealForm.addEventListener('submit', async (e) => {
   const updatedName = editDealName.value.trim();
   const updatedStage = editDealStage.value;
   
-  // Validate updated data
   try {
     validateDeal({ name: updatedName, stage: updatedStage });
     await updateDoc(doc(db, "deals", currentEditDocId), {
@@ -201,32 +210,10 @@ editDealForm.addEventListener('submit', async (e) => {
   }
 });
 
-// Cancel Edit
+// 13) Cancel Edit
 cancelEdit.addEventListener('click', () => {
   editDealDialog.close();
   currentEditDocId = null;
 });
 
-// Optional: Function to seed the database with initial data (run once if needed)
-// async function seedDeals() {
-//   const seedData = [
-//     { name: "Seed Deal 1", stage: "prospecting" },
-//     { name: "Seed Deal 2", stage: "negotiation" },
-//   ];
-//   for (const deal of seedData) {
-//     try {
-//       validateDeal(deal);
-//       await addDoc(collection(db, "deals"), {
-//         ...deal,
-//         createdAt: serverTimestamp()
-//       });
-//     } catch (err) {
-//       console.error("Error seeding deal:", err);
-//     }
-//   }
-// }
-
-// Uncomment the next line to seed data once, then comment it back out:
-// seedDeals();
-
-console.log("Firebase app initialized. Auth & Firestore (CRUD) are ready.");
+console.log("Firebase app initialized. User-specific CRUD is ready.");
